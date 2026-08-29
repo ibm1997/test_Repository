@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Columbo mini — column name expander</title>
+<style>
+  :root { color-scheme: light; }
+  body { font-family: -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; background: #f6f7f9; color: #16181d; }
+  main { max-width: 860px; margin: 0 auto; padding: 32px 20px 64px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.sub { color: #5b6270; margin: 0 0 24px; font-size: 14px; }
+  form { background: #fff; border: 1px solid #e3e6ea; border-radius: 10px; padding: 20px; display: grid; gap: 14px; }
+  label { font-size: 13px; font-weight: 600; display: block; margin-bottom: 5px; }
+  input, textarea, select { width: 100%; box-sizing: border-box; padding: 9px 10px; font: inherit;
+    border: 1px solid #ccd1d9; border-radius: 6px; background: #fff; }
+  textarea { min-height: 92px; resize: vertical; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  button { justify-self: start; padding: 10px 18px; font: inherit; font-weight: 600; color: #fff;
+    background: #1f6feb; border: 0; border-radius: 6px; cursor: pointer; }
+  button[disabled] { opacity: .6; cursor: default; }
+  table { width: 100%; border-collapse: collapse; margin-top: 22px; background: #fff;
+    border: 1px solid #e3e6ea; border-radius: 10px; overflow: hidden; }
+  th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid #eef0f3; font-size: 14px; vertical-align: top; }
+  th { background: #f2f4f7; font-size: 12px; text-transform: uppercase; letter-spacing: .04em; color: #5b6270; }
+  code { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .err { margin-top: 18px; padding: 12px 14px; border-radius: 8px; background: #fdecea; color: #8a1c14; font-size: 14px; }
+  details { margin-top: 18px; }
+  pre { background: #fff; border: 1px solid #e3e6ea; border-radius: 8px; padding: 14px; overflow-x: auto; font-size: 13px; }
+  .hint { font-size: 12px; color: #5b6270; }
+</style>
+</head>
+<body>
+<main>
+  <h1>Column name expander</h1>
+  <p class="sub">Paste a table schema and get a full-form expansion for every abbreviated column name, token by token. Works in any language — expansions stay in the language of the column names.</p>
+
+  <form id="form">
+    <div>
+      <label for="schema_text">Columns</label>
+      <textarea id="schema_text" placeholder="emp_id, emp_nm, dept_cd, doj, sal_amt, mgr_id&#10;nom_cli, dt_nais, cp, mtt_cmd" required></textarea>
+      <span class="hint">Comma or newline separated.</span>
+    </div>
+    <div class="row">
+      <div>
+        <label for="table_name">Table name (optional)</label>
+        <input id="table_name" placeholder="Emp_info" />
+      </div>
+      <div>
+        <label for="model">Model</label>
+        <select id="model">
+          <option value="gpt-4o">gpt-4o</option>
+          <option value="gpt-4o-mini">gpt-4o-mini</option>
+          <option value="gpt-4.1">gpt-4.1</option>
+          <option value="gpt-4.1-mini">gpt-4.1-mini</option>
+        </select>
+      </div>
+    </div>
+    <div class="row">
+      <div>
+        <label for="context">Dataset context (optional)</label>
+        <input id="context" placeholder="HR database of a retail company" />
+      </div>
+      <div>
+        <label for="language">Language of the columns</label>
+        <select id="language">
+          <option value="auto">Auto-detect</option>
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="de">Deutsch</option>
+          <option value="it">Italiano</option>
+          <option value="pt">Português</option>
+          <option value="nl">Nederlands</option>
+        </select>
+      </div>
+    </div>
+    <div>
+      <label for="api_key">LLM API key</label>
+      <input id="api_key" type="password" placeholder="sk-..." autocomplete="off" />
+      <span class="hint">Sent only to this server for the single request; falls back to OPENAI_API_KEY on the server.</span>
+    </div>
+    <button id="submit" type="submit">Expand</button>
+  </form>
+
+  <div id="error" class="err" hidden></div>
+  <div id="output"></div>
+</main>
+
+<script>
+const form = document.getElementById("form");
+const errorBox = document.getElementById("error");
+const output = document.getElementById("output");
+const submit = document.getElementById("submit");
+
+form.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  errorBox.hidden = true;
+  output.innerHTML = "";
+  submit.disabled = true;
+  submit.textContent = "Expanding…";
+
+  try {
+    const response = await fetch("/api/expand", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        schema_text: document.getElementById("schema_text").value,
+        table_name: document.getElementById("table_name").value,
+        context: document.getElementById("context").value,
+        language: document.getElementById("language").value,
+        api_key: document.getElementById("api_key").value,
+        model: document.getElementById("model").value,
+      }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.detail || "Request failed");
+    render(data);
+  } catch (err) {
+    errorBox.textContent = err.message;
+    errorBox.hidden = false;
+  } finally {
+    submit.disabled = false;
+    submit.textContent = "Expand";
+  }
+});
+
+function render(data) {
+  const rows = data.results.map((r) => `
+    <tr>
+      <td><code>${escapeHtml(r.column)}</code></td>
+      <td>${escapeHtml(r.expansion) || "<em>no expansion parsed</em>"}</td>
+      <td>${r.tokens.map((t) => `<code>${escapeHtml(t.token)}</code> → ${escapeHtml(t.expansion)}`).join("<br />")}</td>
+    </tr>`).join("");
+
+  output.innerHTML = `
+    <table>
+      <thead><tr><th>Column</th><th>Expansion</th><th>Tokens</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>
+    <details>
+      <summary>Model reasoning</summary>
+      <pre>${escapeHtml(data.raw)}</pre>
+    </details>`;
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+}
+</script>
+</body>
+</html>
