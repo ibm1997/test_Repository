@@ -18,12 +18,21 @@ Open http://localhost:8000 — paste columns, optionally the table name and a on
 context, paste an OpenAI key, and submit. If the server has `OPENAI_API_KEY` set, the key field
 can be left empty.
 
+## Languages
+
+Column names do not have to be English. The expansions are always written in the language of the
+column names, so `nom_cli, dt_nais, mtt_cmd` comes back as `Nom Client`, `Date Naissance`,
+`Montant Commande`. Leave the language selector on *Auto-detect* to let the model infer it, or pin
+it with `"language": "fr"` (`auto`, `en`, `fr`, `es`, `de`, `it`, `pt`, `nl`) when short or ambiguous
+abbreviations could be read as English.
+
 ## API
 
 ```bash
 curl -s localhost:8000/api/expand -H 'content-type: application/json' -d '{
   "schema_text": "emp_id, emp_nm, dept_cd, doj, sal_amt",
   "table_name": "Emp_info",
+  "language": "auto",
   "api_key": "sk-..."
 }'
 ```
@@ -48,5 +57,5 @@ The API key is used only for the request it arrives on: it is never written to d
 python -m pytest columbo_mini_app
 ```
 
-`test_expander.py` covers schema parsing and the answer parser (arrow variants, unknown columns)
-without calling the LLM.
+`test_expander.py` covers schema parsing, the answer parser (arrow variants, unknown columns,
+accented expansions) and the language instruction, without calling the LLM.

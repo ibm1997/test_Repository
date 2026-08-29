@@ -7,7 +7,7 @@ from fastapi.staticfiles import StaticFiles
 from openai import APIError, AuthenticationError
 from pydantic import BaseModel, Field
 
-from expander import expand_columns
+from expander import LANGUAGES, expand_columns
 
 STATIC_DIR = Path(__file__).parent / "static"
 
@@ -18,6 +18,7 @@ class ExpandRequest(BaseModel):
     schema_text: str = Field(..., description="Column names, comma/newline separated")
     table_name: str = ""
     context: str = ""
+    language: str = "auto"
     api_key: str = ""
     model: str = "gpt-4o"
 
@@ -47,6 +48,12 @@ async def expand(req: ExpandRequest) -> ExpandResponse:
     api_key = req.api_key.strip() or os.environ.get("OPENAI_API_KEY", "")
     if not api_key:
         raise HTTPException(status_code=400, detail="An LLM API key is required.")
+    language = req.language.strip().lower() or "auto"
+    if language not in LANGUAGES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Unsupported language '{req.language}'. Use one of: {', '.join(LANGUAGES)}.",
+        )
 
     try:
         results, raw = await expand_columns(
@@ -54,6 +61,7 @@ async def expand(req: ExpandRequest) -> ExpandResponse:
             table_name=req.table_name,
             columns=columns,
             context=req.context,
+            language=language,
             model=req.model,
         )
     except AuthenticationError:

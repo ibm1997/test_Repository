@@ -26,6 +26,29 @@ Follow the guidelines below when you expand:
 8. If the token is not abbreviated, the expansion should be itself, do not paraphrase.
 """
 
+# Language of the column names, and therefore of the expansions.
+LANGUAGES = {
+    "auto": "",
+    "en": "English",
+    "fr": "French",
+    "es": "Spanish",
+    "de": "German",
+    "it": "Italian",
+    "pt": "Portuguese",
+    "nl": "Dutch",
+}
+
+AUTO_LANGUAGE_RULE = (
+    "9. The column names may be in any language. Detect the language of each column name "
+    "and write its expansion in that same language, using the spelling and accents native "
+    "to it. Never translate into English.\n"
+)
+
+FIXED_LANGUAGE_RULE = (
+    "9. The column names are in {language}. Write every expansion in {language}, using the "
+    "spelling and accents native to it. Never translate into another language.\n"
+)
+
 DEMOS = """[Question]
 As abbreviations of column names from a table named Prchs_info, c_name | pCd | dt stand for
 [Answer]
@@ -45,14 +68,37 @@ The table "AirQ_data" is about air quality measurements.
 stn_id: stn -> Station, id -> Identifier
 pm25_lvl: pm25 -> Particulate Matter 2.5, lvl -> Level
 temp_C: temp -> Temperature, C -> Celsius
+
+[Question]
+As abbreviations of column names from a table named Cli_infos, nom_cli | dt_nais | cp | mtt_cmd stand for
+[Answer]
+### Reasoning
+The table "Cli_infos" is about customer information, and the column names are in French, so the expansions are in French.
+### Final Answer
+nom_cli: nom -> Nom, cli -> Client
+dt_nais: dt -> Date, nais -> Naissance
+cp: cp -> Code Postal
+mtt_cmd: mtt -> Montant, cmd -> Commande
 """
 
 RULE_PATTERN = r"([\w/^%():#/\.\-\s]+?)\s*(?:->|→)\s*([^→]+?)(?=(?:,\s*[\w/^%():#/\.\-\s]+?\s*(?:->|→)|$))"
 
 
-def build_prompt(table_name: str, columns: list[str], context: str = "") -> list[dict]:
+def language_rule(language: str) -> str:
+    name = LANGUAGES.get(language.strip().lower(), "")
+    if not name:
+        return AUTO_LANGUAGE_RULE
+    return FIXED_LANGUAGE_RULE.format(language=name)
+
+
+def build_prompt(
+    table_name: str,
+    columns: list[str],
+    context: str = "",
+    language: str = "auto",
+) -> list[dict]:
     table = table_name.strip() or "unknown_table"
-    query = GUIDELINES
+    query = GUIDELINES + language_rule(language)
     if context.strip():
         query += f"\nAdditional context about the dataset: {context.strip()}\n"
     query += "\n" + DEMOS
@@ -99,13 +145,14 @@ async def expand_columns(
     table_name: str,
     columns: list[str],
     context: str = "",
+    language: str = "auto",
     model: str = "gpt-4o",
     temperature: float = 0.0,
 ) -> tuple[list[dict], str]:
     client = AsyncOpenAI(api_key=api_key)
     completion = await client.chat.completions.create(
         model=model,
-        messages=build_prompt(table_name, columns, context),
+        messages=build_prompt(table_name, columns, context, language),
         temperature=temperature,
         max_completion_tokens=4000,
     )

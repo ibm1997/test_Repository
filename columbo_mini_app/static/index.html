@@ -33,12 +33,12 @@
 <body>
 <main>
   <h1>Column name expander</h1>
-  <p class="sub">Paste a table schema and get a full-form expansion for every abbreviated column name, token by token.</p>
+  <p class="sub">Paste a table schema and get a full-form expansion for every abbreviated column name, token by token. Works in any language — expansions stay in the language of the column names.</p>
 
   <form id="form">
     <div>
       <label for="schema_text">Columns</label>
-      <textarea id="schema_text" placeholder="emp_id, emp_nm, dept_cd, doj, sal_amt, mgr_id" required></textarea>
+      <textarea id="schema_text" placeholder="emp_id, emp_nm, dept_cd, doj, sal_amt, mgr_id&#10;nom_cli, dt_nais, cp, mtt_cmd" required></textarea>
       <span class="hint">Comma or newline separated.</span>
     </div>
     <div class="row">
@@ -56,9 +56,24 @@
         </select>
       </div>
     </div>
-    <div>
-      <label for="context">Dataset context (optional)</label>
-      <input id="context" placeholder="HR database of a retail company" />
+    <div class="row">
+      <div>
+        <label for="context">Dataset context (optional)</label>
+        <input id="context" placeholder="HR database of a retail company" />
+      </div>
+      <div>
+        <label for="language">Language of the columns</label>
+        <select id="language">
+          <option value="auto">Auto-detect</option>
+          <option value="en">English</option>
+          <option value="fr">Français</option>
+          <option value="es">Español</option>
+          <option value="de">Deutsch</option>
+          <option value="it">Italiano</option>
+          <option value="pt">Português</option>
+          <option value="nl">Nederlands</option>
+        </select>
+      </div>
     </div>
     <div>
       <label for="api_key">LLM API key</label>
@@ -93,6 +108,7 @@ form.addEventListener("submit", async (event) => {
         schema_text: document.getElementById("schema_text").value,
         table_name: document.getElementById("table_name").value,
         context: document.getElementById("context").value,
+        language: document.getElementById("language").value,
         api_key: document.getElementById("api_key").value,
         model: document.getElementById("model").value,
       }),
